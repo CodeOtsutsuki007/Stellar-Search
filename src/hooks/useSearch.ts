@@ -104,6 +104,10 @@ export function useSearch(
     }
   }, [walletNetwork, cancelActivePayment])
 
+  const cancel = useCallback(() => {
+    cancelActivePayment('Search request was cancelled.')
+  }, [cancelActivePayment])
+
   const search = useCallback(async (query: string, count = 5) => {
     if (!query.trim()) return
 
@@ -307,5 +311,5 @@ export function useSearch(
     setSession({ query: '', results: [], txHash: null, paidAmount: null, status: 'idle', suggestions: [] })
   }, [])
 
-  return { session, search, reset, cancelActivePayment }
+  return { session, search, reset, cancel } as const
 }
