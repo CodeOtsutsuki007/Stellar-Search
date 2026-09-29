@@ -6,6 +6,7 @@ import {
   AMOUNT_USDC
 } from '../src/lib/constants'
 import { consumePaymentPayload } from '../src/lib/paymentIntegrity'
+import { fetchSerper, CircuitOpenError } from '../src/lib/serperClient'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
@@ -94,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const t0 = Date.now()
 
   try {
-    const serperRes = await fetch('https://google.serper.dev/images', {
+    const serperRes = await fetchSerper('/images', {
       method:  'POST',
       headers: {
         'X-API-KEY':    SERPER_API_KEY,
