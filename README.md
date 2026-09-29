@@ -1464,3 +1464,7 @@ StellarSearch supports full bidirectional layouts (LTR and RTL) with a dedicated
 | Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via OpenZeppelin facilitator                  |
 | x402 protocol                     | ✅ `@x402/express` + `@x402/stellar`                                             |
 | Addresses explicit demand signal  | ✅ "pay-per-query web search instead of monthly subscriptions"                   |
+
+## Request Integrity & Validation
+
+Incoming requests are validated for query presence, format correctness, and parameter bounds prior to invoking the x402 payment middleware or contacting any external facilitator. Malformed or unsupported requests immediately receive a `400 Bad Request` response, preventing unnecessary payment challenges or downstream facilitator calls.
