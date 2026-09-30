@@ -1,6 +1,19 @@
-import type { SearchResult } from '../hooks/useSearch'
 export type { WalletState, StellarTransaction } from '../hooks/useFreighterWallet'
 export type { SearchSession, SearchResult } from '../hooks/useSearch'
+import type { SearchResult } from '../hooks/useSearch'
+
+/**
+ * Common metadata included in search responses across endpoints.
+ */
+export interface BaseSearchResponse {
+  query: string
+  count: number
+  network: string
+  paidAmount: string
+  currency: string
+  txHash?: string | null
+  latencyMs: number
+}
 
 // ─── Answer Box ────────────────────────────────────────────────────────────
 /** Direct factual answer to a query (e.g., "what is X") */
@@ -179,6 +192,9 @@ export interface SavedResearchItem {
   tags?: string[]
   notes?: string
 }
+
+// x402 payment flow step numbers (1: Request -> 6: Result)
+export type PaymentStep = 1 | 2 | 3 | 4 | 5 | 6
 
 // ─── API Stats ─────────────────────────────────────────────────────────────
 export interface ApiStat {
