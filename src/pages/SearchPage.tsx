@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { Search, Zap, AlertCircle } from 'lucide-react'
 import {
   SearchBar,
@@ -16,14 +17,15 @@ interface Props {
   wallet: WalletState
   onConnectWallet: () => void
   session: SearchSession
-  search: (query: string, count?: number) => Promise<void>
+  search: (query: string, count?: number, includeDomains?: string[], excludeDomains?: string[]) => Promise<void>
   reset: () => void
 }
 
 export function SearchPage({ wallet, onConnectWallet, session, search, reset }: Props) {
-  const handleSearch = (query: string) => {
+  const { t } = useTranslation('search')
+  const handleSearch = (query: string, includeDomains?: string[], excludeDomains?: string[]) => {
     if (!wallet.connected) { onConnectWallet(); return }
-    search(query)
+    search(query, 5, includeDomains, excludeDomains)
   }
 
   const isSearching = session.status === 'searching'
@@ -82,7 +84,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
                 style={{ border: '1px solid rgba(0,245,255,0.4)', background: 'rgba(0,245,255,0.08)', boxShadow: '0 0 20px rgba(0,245,255,0.15)' }}
               >
                 <Zap className="w-4 h-4" />
-                CONNECT FREIGHTER TO SEARCH
+                {t('connectCta', 'CONNECT FREIGHTER TO SEARCH')}
               </motion.button>
             )}
           </motion.div>
@@ -129,6 +131,16 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
 
             {(session.status === 'complete' || session.status === 'searching') && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                {session.filters && (
+                   <div className="flex flex-wrap gap-2 mb-4 px-1">
+                     {session.filters.includeDomains?.map((d: string) => (
+                        <span key={`inc-${d}`} className="px-3 py-1 bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-[10px] uppercase tracking-widest font-display rounded-full cursor-pointer hover:bg-neon-cyan/20 transition-colors" onClick={() => handleSearch(session.query, session.filters?.includeDomains?.filter((x: string) => x !== d), session.filters?.excludeDomains)}>+ {d} ✕</span>
+                     ))}
+                     {session.filters.excludeDomains?.map((d: string) => (
+                        <span key={`exc-${d}`} className="px-3 py-1 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] uppercase tracking-widest font-display rounded-full cursor-pointer hover:bg-red-500/20 transition-colors" onClick={() => handleSearch(session.query, session.filters?.includeDomains, session.filters?.excludeDomains?.filter((x: string) => x !== d))}>- {d} ✕</span>
+                     ))}
+                   </div>
+                )}
                 <SearchResults results={session.results} query={session.query} isLoading={session.status === 'searching'} />
               </motion.div>
             )}
@@ -142,7 +154,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
             {(session.status === 'complete' || session.status === 'error') && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center pt-2">
                 <button onClick={reset} className="font-display text-xs text-white/25 hover:text-neon-cyan transition-colors tracking-widest">
-                  ← NEW SEARCH
+                  {t('newSearch', '← NEW SEARCH')}
                 </button>
               </motion.div>
             )}
