@@ -36,7 +36,7 @@ function privacySafeIp(value: unknown): string {
 function privacySafeQuery(_value: unknown): undefined {
   return undefined
 }
-import { STELLAR_NETWORK, AMOUNT_USDC, AMOUNT_STROOPS, USDC_CONTRACT } from '../src/lib/constants'
+import { USDC_CONTRACT } from '../src/lib/constants'
 import {
   type CountBounds,
   type Freshness,
@@ -48,7 +48,7 @@ import {
   validateFreshness,
 } from '../src/lib/paramValidation.js'
 import { sanitizeOperatorText } from '../src/lib/logSanitize.js'
-import { consumePaymentPayload, extractPaymentIdentifier } from '../src/lib/paymentIntegrity'
+import { consumePaymentPayload } from '../src/lib/paymentIntegrity'
 import { fetchSerper, CircuitOpenError, getSerperBreakerState } from '../src/lib/serperClient.js'
 import { formatConfigurationError, readServerConfig } from '../src/lib/config'
 import {
@@ -65,7 +65,6 @@ import type {
   NewsSearchResponse,
   ApiErrorResponse,
   BatchJsonlEvent,
-  BatchJsonlQuoteEvent,
   BatchJsonlSettlementEvent,
   BatchJsonlResultEvent,
   BatchJsonlErrorEvent,
@@ -77,7 +76,9 @@ import { buildReconciliationRecord, type ReconciliationRoute } from '../src/lib/
 import { appendReconciliationRecord } from './reconciliationStore.js'
 import { ConcurrencyGate } from './concurrency.js'
 import { getReadiness } from './readiness.js'
+import { getX402DiscoveryMetadata, requestOrigin } from '../src/lib/x402Discovery.js'
 import { validateQuery, MAX_QUERY_LENGTH } from '../src/lib/queryValidation.js'
+import { compressionMiddleware } from '../src/lib/compression.js'
 
 dotenv.config()
 
@@ -175,6 +176,7 @@ app.use(
   })
 )
 app.use(cors(buildCorsOptions()))
+app.use(compressionMiddleware())
 app.use(express.json())
 app.use(limiter)
 
@@ -513,6 +515,20 @@ app.use((req, res, next) => {
   next()
 })
 
+// Validate requests for query correctness before any payment challenge or settlement
+app.use((req: Request, res: Response, next) => {
+  const paidRoutes = ['/search', '/images', '/news']
+  if (paidRoutes.includes(req.path)) {
+    const { q } = req.query as Record<string, string>
+    const v = validateQuery(q)
+    if (!v.ok) {
+      const errorBody: ApiErrorResponse = { error: v.error }
+      return res.status(400).json(errorBody)
+    }
+  }
+  next()
+})
+
 app.use(paymentMiddlewareFromConfig(x402Routes, facilitatorClient, schemes))
 
 // ─── Payment Replay Protection Middleware ─────────────────────────────────
@@ -579,7 +595,7 @@ app.get('/search', async (req: Request, res: Response) => {
   let txHash: string | null = null
 
   try {
-    const { q } = req.query as Record<string, string>
+    const { q, includeDomains, excludeDomains } = req.query as Record<string, string>
 
     const v = validateQuery(q)
     if (!v.ok) {
@@ -589,12 +605,25 @@ app.get('/search', async (req: Request, res: Response) => {
     const cleanQ = v.cleanQ
 
     const { count, tbs } = paidParams(req, SEARCH_COUNT)
+
+    let finalQ = cleanQ
+    const appliedIncludes = includeDomains ? includeDomains.split(',').map(d => d.trim().toLowerCase()).filter(d => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)).slice(0, 5) : []
+    const appliedExcludes = excludeDomains ? excludeDomains.split(',').map(d => d.trim().toLowerCase()).filter(d => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)).slice(0, 10) : []
+
+    if (appliedIncludes.length > 0) {
+      finalQ += ' (' + appliedIncludes.map(d => `site:${d}`).join(' OR ') + ')'
+    }
+    if (appliedExcludes.length > 0) {
+      finalQ += ' ' + appliedExcludes.map(d => `-site:${d}`).join(' ')
+    }
+
     const t0 = Date.now()
 
     const requestBody: Record<string, unknown> = {
-      q: cleanQ,
+      q: finalQ,
       num: count,
     }
+
     if (tbs) requestBody.tbs = tbs
 
     const serperRes = await fetchSerper('/search', {
@@ -685,6 +714,10 @@ app.get('/search', async (req: Request, res: Response) => {
       txHash,
       latencyMs,
       suggestions,
+      filters: {
+        ...(appliedIncludes.length > 0 && { includeDomains: appliedIncludes }),
+        ...(appliedExcludes.length > 0 && { excludeDomains: appliedExcludes }),
+      }
     }
 
     // Record opted-in receipt (cap 50, in-memory)
@@ -930,7 +963,7 @@ app.post('/search/batch', async (req: Request, res: Response) => {
   }
 
   const { queries } = (req.body || {}) as { queries?: unknown }
-  const { count: parsedCount, freshness, tbs } = paidParams(req, SEARCH_COUNT)
+  const { count: parsedCount, freshness } = paidParams(req, SEARCH_COUNT)
 
   if (!Array.isArray(queries) || queries.length === 0) {
     return res.status(400).json({ error: 'queries array required (1..10)' })
@@ -1263,7 +1296,7 @@ app.post('/jobs', async (req: Request, res: Response) => {
   const v = validateQuery(query)
   if (!v.ok) return res.status(400).json({ error: v.error })
   const cleanQ = v.cleanQ
-  const { count: safeCount, freshness, tbs } = paidParams(req, SEARCH_COUNT)
+  const { count: safeCount, freshness } = paidParams(req, SEARCH_COUNT)
 
   // Webhook validation (SSRF + https)
   if (webhookUrl) {
@@ -1527,6 +1560,9 @@ app.get('/metrics', (_req: Request, res: Response) => {
 // `Accept: text/event-stream`; otherwise returns the full completion as JSON
 // (back-compat fallback for callers that don't support SSE).
 app.post('/ai/chat', async (req: Request, res: Response) => {
+  if (req.method === 'POST' && req.headers['content-type'] && !req.headers['content-type'].includes('application/json')) {
+    return res.status(415).json({ error: 'Unsupported Media Type: application/json required' })
+  }
   if (!groq) {
     return res.status(503).json({ error: 'AI assistant is not configured.' })
   }

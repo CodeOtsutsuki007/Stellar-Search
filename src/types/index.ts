@@ -1,5 +1,6 @@
+import type { SearchResult } from '../hooks/useSearch'
 export type { WalletState, StellarTransaction } from '../hooks/useFreighterWallet'
-export type { SearchResult, SearchSession, SearchReceipt } from '../hooks/useSearch'
+export type { SearchSession, SearchResult } from '../hooks/useSearch'
 
 // ─── Answer Box ────────────────────────────────────────────────────────────
 /** Direct factual answer to a query (e.g., "what is X") */
@@ -111,8 +112,17 @@ export interface NewsSearchResponse {
 export type NewsResponse = NewsSearchResponse
 
 // ─── API Error Response ────────────────────────────────────────────────────
+export enum SerperErrorCode {
+  AUTH_FAILURE = 'SERPER_AUTH_FAILURE',
+  QUOTA_EXCEEDED = 'SERPER_QUOTA_EXCEEDED',
+  RATE_LIMITED = 'SERPER_RATE_LIMITED',
+  PROVIDER_ERROR = 'SERPER_PROVIDER_ERROR',
+  NETWORK_ERROR = 'SERPER_NETWORK_ERROR',
+}
+
 export interface ApiErrorResponse {
   error: string
+  providerCode?: SerperErrorCode
   credit?: CreditReceipt
 }
 
@@ -122,6 +132,8 @@ export type ErrorResponse = ApiErrorResponse
 // ─── Credit Receipt ───────────────────────────────────────────────────────
 export interface CreditReceipt {
   id: string
+  creditId?: string
+  receiptId?: string
   amount: string
   reason: string
 }
@@ -133,6 +145,39 @@ export interface SearchReceipt {
   amount: string
   timestamp: string
   network: string
+  asset?: string
+  destination?: string
+}
+
+// ─── Receipt Verification Types ───────────────────────────────────────────
+export type ReceiptVerificationStatus = 'confirmed' | 'mismatched' | 'unverified'
+
+export interface ReceiptVerificationDetail {
+  status: ReceiptVerificationStatus
+  ledgerSequence?: number
+  verifiedAt?: string
+  network?: string
+  txHash?: string
+  asset?: string
+  amount?: string
+  destination?: string
+  mismatches?: string[]
+  error?: string
+}
+
+// ─── Additional UI & Sitelink Types ───────────────────────────────────────
+export interface Sitelink {
+  title: string
+  link: string
+}
+
+export interface SavedResearchItem {
+  id: string
+  query: string
+  timestamp: string
+  results: SearchResult[]
+  tags?: string[]
+  notes?: string
 }
 
 // ─── API Stats ─────────────────────────────────────────────────────────────
