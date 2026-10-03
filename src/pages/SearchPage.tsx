@@ -18,15 +18,13 @@ import { AMOUNT_USDC } from '../lib/stellar'
 export interface PendingSearch {
   query: string
   freshness?: string
-  includeDomains?: string[]
-  excludeDomains?: string[]
 }
 
 interface Props {
   wallet: WalletState
   onConnectWallet: () => void | Promise<void> | Promise<boolean>
   session: SearchSession
-  search: (query: string, freshnessOrCount?: any, includeDomains?: string[], excludeDomains?: string[]) => Promise<void>
+  search: (query: string, countOrFreshness?: number | string, includeDomains?: string[], excludeDomains?: string[]) => Promise<void> | void
   reset: () => void
 }
 
@@ -38,13 +36,13 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
   // Auto-resume search when wallet connects successfully
   useEffect(() => {
     if (wallet.connected && wallet.publicKey && pendingSearchRef.current) {
-      const { query, freshness, includeDomains, excludeDomains } = pendingSearchRef.current
+      const { query, freshness } = pendingSearchRef.current
       pendingSearchRef.current = null
       setPendingSearch(null)
       if (freshness) {
         search(query, freshness)
       } else {
-        search(query, 5, includeDomains, excludeDomains)
+        search(query, 5, [], [])
       }
     }
   }, [wallet.connected, wallet.publicKey, search])
@@ -64,19 +62,24 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
   const handleSearch = async (
     query: string,
     freshnessOrInclude?: string | string[],
-    excludeDomains?: string[]
+    excludeDomains?: string[],
+    freshnessParam?: string
   ) => {
-    const isFreshness = typeof freshnessOrInclude === 'string'
-    const freshness = isFreshness ? freshnessOrInclude : undefined
-    const includeDomains = Array.isArray(freshnessOrInclude) ? freshnessOrInclude : undefined
+    let freshness: string | undefined
+    let incDomains: string[] = []
+    let excDomains: string[] = []
+
+    if (typeof freshnessOrInclude === 'string') {
+      freshness = freshnessOrInclude
+      if (Array.isArray(excludeDomains)) incDomains = excludeDomains
+    } else if (Array.isArray(freshnessOrInclude)) {
+      incDomains = freshnessOrInclude
+      if (Array.isArray(excludeDomains)) excDomains = excludeDomains
+      if (typeof freshnessParam === 'string' && freshnessParam) freshness = freshnessParam
+    }
 
     if (!wallet.connected) {
-      const pending: PendingSearch = {
-        query: query.trim(),
-        freshness,
-        includeDomains,
-        excludeDomains,
-      }
+      const pending: PendingSearch = { query: query.trim(), freshness: freshness || undefined }
       pendingSearchRef.current = pending
       setPendingSearch(pending)
       toast.info('Connect Freighter', {
@@ -105,10 +108,10 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
 
     pendingSearchRef.current = null
     setPendingSearch(null)
-    if (isFreshness) {
+    if (freshness) {
       search(query, freshness)
     } else {
-      search(query, 5, includeDomains, excludeDomains)
+      search(query, 5, incDomains, excDomains)
     }
   }
 
@@ -147,11 +150,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{
-                    background: 'rgba(0,245,255,0.15)',
-                    border: '1px solid rgba(0,245,255,0.5)',
-                    boxShadow: '0 0 10px rgba(0,245,255,0.3)',
-                  }}
+                  style={{ background: 'rgba(0,245,255,0.15)', border: '1px solid rgba(0,245,255,0.5)', boxShadow: '0 0 10px rgba(0,245,255,0.3)' }}
                 >
                   <Search className="w-4 h-4 text-neon-cyan" />
                 </div>
@@ -160,20 +159,16 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
 
             <h1 className="font-display text-4xl sm:text-5xl text-white leading-tight">
               SEARCH
-              <span className="text-neon-cyan" style={{ textShadow: '0 0 20px rgba(0,245,255,0.8)' }}>
-                .
-              </span>
+              <span className="text-neon-cyan" style={{ textShadow: '0 0 20px rgba(0,245,255,0.8)' }}>.</span>
               PAY
-              <span className="text-neon-cyan" style={{ textShadow: '0 0 20px rgba(0,245,255,0.8)' }}>
-                .
-              </span>
+              <span className="text-neon-cyan" style={{ textShadow: '0 0 20px rgba(0,245,255,0.8)' }}>.</span>
               GET
             </h1>
 
             <p className="text-white/45 text-lg max-w-md mx-auto leading-relaxed">
               Real web search for AI agents.{' '}
-              <span className="text-neon-cyan font-medium">{AMOUNT_USDC} USDC</span> per query settled on
-              Stellar via x402. Powered by <span className="text-neon-amber font-medium">Serper.dev</span> +{' '}
+              <span className="text-neon-cyan font-medium">{AMOUNT_USDC} USDC</span> per query settled on Stellar via x402.
+              Powered by <span className="text-neon-amber font-medium">Serper.dev</span> +{' '}
               <span className="text-neon-green font-medium">Groq AI</span>.
             </p>
 
@@ -183,11 +178,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-display text-sm tracking-wider text-neon-cyan"
-                style={{
-                  border: '1px solid rgba(0,245,255,0.4)',
-                  background: 'rgba(0,245,255,0.08)',
-                  boxShadow: '0 0 20px rgba(0,245,255,0.15)',
-                }}
+                style={{ border: '1px solid rgba(0,245,255,0.4)', background: 'rgba(0,245,255,0.08)', boxShadow: '0 0 20px rgba(0,245,255,0.15)' }}
               >
                 <Zap className="w-4 h-4" />
                 {t('connectCta', 'CONNECT FREIGHTER TO SEARCH')}
@@ -215,7 +206,9 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
               Connecting wallet to resume search for{' '}
               <span className="text-white font-semibold">"{pendingSearch.query}"</span>
               {pendingSearch.freshness && (
-                <span className="text-white/60 text-xs ml-1">({pendingSearch.freshness})</span>
+                <span className="text-white/60 text-xs ml-1">
+                  ({pendingSearch.freshness})
+                </span>
               )}
               ...
             </p>
@@ -256,7 +249,9 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
       />
 
       <AnimatePresence>
-        {session.status === 'idle' && <SearchResults results={[]} query="" />}
+        {session.status === 'idle' && (
+          <SearchResults results={[]} query="" />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -277,70 +272,30 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
             )}
 
             {(session.status === 'complete' || session.status === 'searching') && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                 {session.filters && (
-                  <div className="flex flex-wrap gap-2 mb-4 px-1">
-                    {session.filters.includeDomains?.map((d: string) => (
-                      <span
-                        key={`inc-${d}`}
-                        className="px-3 py-1 bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-[10px] uppercase tracking-widest font-display rounded-full cursor-pointer hover:bg-neon-cyan/20 transition-colors"
-                        onClick={() =>
-                          handleSearch(
-                            session.query,
-                            session.filters?.includeDomains?.filter((x: string) => x !== d),
-                            session.filters?.excludeDomains
-                          )
-                        }
-                      >
-                        + {d} ✕
-                      </span>
-                    ))}
-                    {session.filters.excludeDomains?.map((d: string) => (
-                      <span
-                        key={`exc-${d}`}
-                        className="px-3 py-1 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] uppercase tracking-widest font-display rounded-full cursor-pointer hover:bg-red-500/20 transition-colors"
-                        onClick={() =>
-                          handleSearch(
-                            session.query,
-                            session.filters?.includeDomains,
-                            session.filters?.excludeDomains?.filter((x: string) => x !== d)
-                          )
-                        }
-                      >
-                        - {d} ✕
-                      </span>
-                    ))}
-                  </div>
+                   <div className="flex flex-wrap gap-2 mb-4 px-1">
+                     {session.filters.includeDomains?.map((d: string) => (
+                        <span key={`inc-${d}`} className="px-3 py-1 bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-[10px] uppercase tracking-widest font-display rounded-full cursor-pointer hover:bg-neon-cyan/20 transition-colors" onClick={() => handleSearch(session.query, session.filters?.includeDomains?.filter((x: string) => x !== d), session.filters?.excludeDomains)}>+ {d} ✕</span>
+                     ))}
+                     {session.filters.excludeDomains?.map((d: string) => (
+                        <span key={`exc-${d}`} className="px-3 py-1 bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] uppercase tracking-widest font-display rounded-full cursor-pointer hover:bg-red-500/20 transition-colors" onClick={() => handleSearch(session.query, session.filters?.includeDomains, session.filters?.excludeDomains?.filter((x: string) => x !== d))}>- {d} ✕</span>
+                     ))}
+                   </div>
                 )}
-                <SearchResults
-                  results={session.results}
-                  query={session.query}
-                  isLoading={session.status === 'searching'}
-                  txHash={session.txHash}
-                />
+                <SearchResults results={session.results} query={session.query} isLoading={session.status === 'searching'} />
               </motion.div>
             )}
 
             {session.status === 'complete' && session.suggestions.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <SearchSuggestions onSelect={handleSearch} aiSuggestions={session.suggestions} />
               </motion.div>
             )}
 
             {(session.status === 'complete' || session.status === 'error') && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center pt-2">
-                <button
-                  onClick={handleReset}
-                  className="font-display text-xs text-white/25 hover:text-neon-cyan transition-colors tracking-widest"
-                >
+                <button onClick={handleReset} className="font-display text-xs text-white/25 hover:text-neon-cyan transition-colors tracking-widest">
                   {t('newSearch', '← NEW SEARCH')}
                 </button>
               </motion.div>

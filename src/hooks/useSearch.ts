@@ -111,7 +111,7 @@ export function useSearch(
     }
   }, [walletNetwork, cancelActivePayment])
 
-  const search = useCallback(async (query: string, count = 5, includeDomains?: string[], excludeDomains?: string[]) => {
+  const search = useCallback(async (query: string, countOrFreshness: number | string = 5, includeDomains?: string[], excludeDomains?: string[]) => {
     if (!query.trim()) return
 
     const activePayment: ActivePayment = {
@@ -128,7 +128,10 @@ export function useSearch(
     setSession({ query, results: [], txHash: null, paidAmount: null, status: 'searching', step: 1, suggestions: [] })
 
     const t0     = Date.now()
-    const params = new URLSearchParams({ q: query, count: String(count), suggestions: '1' })
+    const countVal = typeof countOrFreshness === 'number' ? String(countOrFreshness) : '5'
+    const freshnessVal = typeof countOrFreshness === 'string' && countOrFreshness ? countOrFreshness : undefined
+    const params = new URLSearchParams({ q: query, count: countVal, suggestions: '1' })
+    if (freshnessVal) params.append('freshness', freshnessVal)
     if (includeDomains && includeDomains.length > 0) params.append('includeDomains', includeDomains.join(','))
     if (excludeDomains && excludeDomains.length > 0) params.append('excludeDomains', excludeDomains.join(','))
 

@@ -17,7 +17,7 @@ export const FRESHNESS_OPTIONS: FreshnessOption[] = [
 ]
 
 interface Props {
-  onSearch: (query: string, includeDomainsOrFreshness?: any, excludeDomains?: any) => void
+  onSearch: (query: string, includeDomains?: string[], excludeDomains?: string[], freshness?: string) => void
   isSearching: boolean
   walletConnected: boolean
   usdcBalance: string
@@ -59,13 +59,12 @@ export function SearchBar({
     }
 
     const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
-
     const includeDomains = includeStr.split(',').map(d => d.trim()).filter(Boolean)
     const excludeDomains = excludeStr.split(',').map(d => d.trim()).filter(Boolean)
 
     if (q) {
       if (freshness) {
-        onSearch(q, freshness)
+        onSearch(q, includeDomains, excludeDomains, freshness)
       } else {
         onSearch(q, includeDomains, excludeDomains)
       }
@@ -95,10 +94,7 @@ export function SearchBar({
           }`}
           style={
             !isWrongNetwork
-              ? {
-                  background:
-                    'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))',
-                }
+              ? { background: 'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))' }
               : {}
           }
         />
@@ -107,17 +103,13 @@ export function SearchBar({
           className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-3 sm:px-5 py-3 sm:py-4 rounded-2xl"
           style={{
             background: 'rgba(6,13,20,0.85)',
-            border: isWrongNetwork
-              ? '1px solid rgba(239,68,68,0.3)'
-              : '1px solid rgba(0,245,255,0.15)',
+            border: isWrongNetwork ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(0,245,255,0.15)',
             backdropFilter: 'blur(16px)',
           }}
         >
           <Search
             className="w-5 h-5 flex-shrink-0"
-            style={{
-              color: isWrongNetwork ? 'rgba(239,68,68,0.5)' : 'rgba(0,245,255,0.5)',
-            }}
+            style={{ color: isWrongNetwork ? 'rgba(239,68,68,0.5)' : 'rgba(0,245,255,0.5)' }}
           />
 
           <input
@@ -126,11 +118,7 @@ export function SearchBar({
             type="text"
             aria-label="Search query"
             defaultValue={defaultQuery}
-            placeholder={
-              isWrongNetwork
-                ? 'Switch network to search...'
-                : 'Search anything — pay per query, not per month...'
-            }
+            placeholder={isWrongNetwork ? 'Switch network to search...' : "Search anything — pay per query, not per month..."}
             disabled={isSearching || isWrongNetwork}
             className="flex-1 min-w-0 bg-transparent text-white placeholder:text-white/20 text-sm outline-none disabled:opacity-50"
             style={{ caretColor: isWrongNetwork ? '#ef4444' : '#00f5ff' }}
@@ -141,17 +129,10 @@ export function SearchBar({
             disabled={isSearching || isWrongNetwork}
             className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-display text-xs tracking-wider transition-all disabled:opacity-40"
             style={{
-              background:
-                isSearching || isWrongNetwork ? 'transparent' : 'rgba(0,245,255,0.12)',
+              background: isSearching || isWrongNetwork ? 'transparent' : 'rgba(0,245,255,0.12)',
               border: '1px solid',
-              borderColor:
-                isSearching || isWrongNetwork
-                  ? 'rgba(255,255,255,0.1)'
-                  : 'rgba(0,245,255,0.4)',
-              color:
-                isSearching || isWrongNetwork
-                  ? 'rgba(255,255,255,0.3)'
-                  : '#00f5ff',
+              borderColor: isSearching || isWrongNetwork ? 'rgba(255,255,255,0.1)' : 'rgba(0,245,255,0.4)',
+              color: isSearching || isWrongNetwork ? 'rgba(255,255,255,0.3)' : '#00f5ff',
             }}
             whileTap={{ scale: 0.96 }}
           >
@@ -162,17 +143,15 @@ export function SearchBar({
                 transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
               />
             ) : (
-              <>
-                <Zap className="w-3.5 h-3.5" /> {AMOUNT_USDC} USDC
-              </>
+              <><Zap className="w-3.5 h-3.5" /> {AMOUNT_USDC} USDC</>
             )}
           </motion.button>
         </div>
       </div>
 
-      {/* Date Range Freshness Filter Chips */}
+      {/* Date Range Freshness Filter Chips (#17) */}
       <div
-        className="flex items-center gap-2 mt-2 px-1 flex-wrap"
+        className="flex items-center gap-2 mt-3 px-1 flex-wrap"
         role="group"
         aria-label="Date range filters"
       >
@@ -227,10 +206,7 @@ export function SearchBar({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-2 px-1">
         <p className="font-display text-xs text-white/20">
           {walletConnected
-            ? `Balance: ${usdcBalance} USDC · ~${Math.floor(
-                (isNaN(parseFloat(usdcBalance)) ? 0 : Math.max(0, parseFloat(usdcBalance))) /
-                  parseFloat(AMOUNT_USDC)
-              ).toLocaleString()} queries left`
+            ? `Balance: ${usdcBalance} USDC · ~${Math.floor((isNaN(parseFloat(usdcBalance)) ? 0 : Math.max(0, parseFloat(usdcBalance))) / parseFloat(AMOUNT_USDC)).toLocaleString()} queries left`
             : 'Connect Freighter wallet to search'}
         </p>
         <p className="font-display text-xs text-white/20 uppercase tracking-widest">
