@@ -15,9 +15,22 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
   StdioServerTransport: class {},
 }))
 
+const CallToolRequestSchemaMock = { name: 'CallToolRequestSchema' }
+const ListToolsRequestSchemaMock = { name: 'ListToolsRequestSchema' }
+const ListResourcesRequestSchemaMock = { name: 'ListResourcesRequestSchema' }
+const ReadResourceRequestSchemaMock = { name: 'ReadResourceRequestSchema' }
+const ListPromptsRequestSchemaMock = { name: 'ListPromptsRequestSchema' }
+const GetPromptRequestSchemaMock = { name: 'GetPromptRequestSchema' }
+const CancelledNotificationSchemaMock = { name: 'CancelledNotificationSchema' }
+
 vi.mock('@modelcontextprotocol/sdk/types.js', () => ({
-  CallToolRequestSchema: { id: 'CallToolRequestSchema' },
-  ListToolsRequestSchema: { id: 'ListToolsRequestSchema' },
+  CallToolRequestSchema: CallToolRequestSchemaMock,
+  ListToolsRequestSchema: ListToolsRequestSchemaMock,
+  ListResourcesRequestSchema: ListResourcesRequestSchemaMock,
+  ReadResourceRequestSchema: ReadResourceRequestSchemaMock,
+  ListPromptsRequestSchema: ListPromptsRequestSchemaMock,
+  GetPromptRequestSchema: GetPromptRequestSchemaMock,
+  CancelledNotificationSchema: CancelledNotificationSchemaMock,
 }))
 
 const mockGroqCreate = vi.fn().mockResolvedValue({
@@ -51,10 +64,8 @@ describe('MCP server — structuredContent alongside human-readable text (#171)'
     await import('../index.js')
 
     const calls = mockSetRequestHandler.mock.calls
-    expect(calls.length).toBeGreaterThanOrEqual(2)
-
-    listToolsHandler = calls[0][1]
-    callToolHandler = calls[1][1]
+    listToolsHandler = calls.find((c: any) => c[0] === ListToolsRequestSchemaMock)?.[1]
+    callToolHandler = calls.find((c: any) => c[0] === CallToolRequestSchemaMock)?.[1]
   })
 
   beforeEach(() => {

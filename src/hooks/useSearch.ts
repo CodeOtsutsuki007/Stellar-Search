@@ -53,12 +53,16 @@ export type PaymentStep = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface SearchSession {
   query: string
+  originalQuery?: string
+  executedQuery?: string
+  suggestedQuery?: string
+  isCorrected?: boolean
   results: SearchResult[]
   txHash: string | null
   paidAmount: string | null
   status: 'idle' | 'searching' | 'complete' | 'error'
   step?: PaymentStep
-  error?: string
+  error?: string | null
   durationMs?: number
   suggestions: string[]
   filters?: {
@@ -247,8 +251,10 @@ export function useSearch(
       console.log('✅ Search complete!')
 
       const paymentResponseHeader = paidRes.headers.get('PAYMENT-RESPONSE') || paidRes.headers.get('x-payment-response')
-      const paymentResponse = paymentResponseHeader 
-        ? httpClient.parsePaymentResponseHeader(paymentResponseHeader) 
+      const paymentResponse: any = paymentResponseHeader 
+        ? (typeof (httpClient as any).parsePaymentResponseHeader === 'function'
+            ? (httpClient as any).parsePaymentResponseHeader(paymentResponseHeader)
+            : paymentResponseHeader)
         : null
       const txHash = data.txHash || paymentResponse?.transactionHash || null
       const paidAmount = data.paidAmount || paymentResponse?.amount || null

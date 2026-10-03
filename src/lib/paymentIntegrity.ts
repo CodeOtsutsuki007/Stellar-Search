@@ -248,7 +248,7 @@ export function beginIdempotentRequest<T>(
     status: 'pending',
   }
 
-  idempotentRequests.set(key, record)
+  idempotentRequests.set(key, record as any)
   return { ok: true, duplicate: false, key, record }
 }
 

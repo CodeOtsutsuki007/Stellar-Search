@@ -33,10 +33,11 @@ const DISMISSED_KEY = 'stellar-search:onboarding-dismissed'
 export function getOnboardingSteps(
   wallet: Pick<WalletState, 'connected' | 'hasUsdcTrustline' | 'usdcBalance'>,
 ): OnboardingStep[] {
-  const walletConnected = wallet.connected
-  const trustlineEstablished = walletConnected && wallet.hasUsdcTrustline
-  const paymentReady =
+  const walletConnected = Boolean(wallet.connected)
+  const trustlineEstablished = Boolean(walletConnected && wallet.hasUsdcTrustline)
+  const paymentReady = Boolean(
     trustlineEstablished && parseFloat(wallet.usdcBalance || '0') >= parseFloat(AMOUNT_USDC)
+  )
 
   return [
     { id: 'wallet', complete: walletConnected },
