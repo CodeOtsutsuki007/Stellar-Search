@@ -161,8 +161,58 @@ The typed schema checks required core variables separately from optional feature
 | `SERPER_BREAKER_FAILURE_THRESHOLD` | No | `5` | Consecutive Serper failures (5xx/429/network error) required to open the circuit breaker (see [Serper circuit breaker](#serper-circuit-breaker-120)). | `5` |
 | `SERPER_BREAKER_OPEN_MS` | No | `30000` | Milliseconds the breaker stays open before allowing a half-open recovery probe. | `30000` |
 | `SERPER_BREAKER_HALF_OPEN_PROBES` | No | `1` | Concurrent requests allowed through while the breaker is half-open, testing recovery. | `1` |
+| `DEBUG_LOGGING` | No | `false` | Enable debug logging mode for development/troubleshooting. See [Logging & Privacy](#logging--privacy) for details. | `false` |
 
 > Startup validation: the server validates `STELLAR_NETWORK` and `STELLAR_RECEIVING_ADDRESS` before the paid routes are mounted. Invalid values fail fast with a clear error that redacts the actual address instead of logging secret material.
+
+---
+
+## Logging & Privacy
+
+StellarSearch implements privacy-preserving logging by default to protect user data and reduce sensitive telemetry exposure.
+
+### Default behavior (production)
+
+In default mode (`DEBUG_LOGGING=false` or unset):
+
+- **IP addresses** are logged as SHA-256 hashes (first 16 characters) prefixed with `ip:` — e.g., `ip:a1b2c3d4e5f6...`
+- **Query text** is never logged — the `query` field is omitted from payment attempt logs
+- **Sensitive data** (API keys, wallet addresses, payment headers) is automatically redacted by the shared redactor (`src/lib/redactor.ts`)
+- Use request IDs for correlation instead of query content
+
+### Debug mode (development/troubleshooting only)
+
+When `DEBUG_LOGGING=true`:
+
+- **IP addresses** are logged in full (e.g., `192.168.1.1`) for troubleshooting network issues
+- **Query text** is logged truncated to 200 characters to aid debugging search behavior
+- All other redaction rules still apply (API keys, secrets, etc. remain redacted)
+- Log level is set to `debug` for more verbose output
+
+#### Debug mode retention policy
+
+⚠️ **Debug mode should only be enabled temporarily for active debugging sessions.**
+
+- Never store debug logs long-term or commit them to version control
+- Clear debug logs immediately after the debugging session is complete
+- Debug logs are subject to the same access controls as regular logs
+- In production deployments, ensure `DEBUG_LOGGING` is unset or set to `false`
+
+### Implementation
+
+The privacy functions are centralized in `server/logger.ts`:
+
+- `privacySafeIp(value)` — hashes IPs by default, returns full IP in debug mode
+- `privacySafeQuery(value)` — returns `undefined` by default, truncated query in debug mode
+- Both functions respect the `DEBUG_LOGGING` environment variable
+
+The shared redactor (`src/lib/redactor.ts`) provides recursive, case-insensitive redaction of:
+- Authorization/payment headers
+- API keys and secrets
+- Wallet addresses and signing material
+- Query/search text and provider messages
+
+This redactor is used across all runtimes (Express, Vercel, browser, MCP) for consistent privacy protection.
 
 ---
 
@@ -965,7 +1015,17 @@ English is the complete, always-available fallback locale, via [i18next](https:/
 }
 ```
 
-Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it calls `web_search`, the server pays via x402, and Claude gets real results.### MCP progress notifications (#327)
+Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it calls `web_search`, the server pays via x402, and Claude gets real results.
+
+### Dual Output: Markdown Text + `structuredContent` (#171)
+
+All search, balance, and stats tools expose documented `outputSchema` and return **dual outputs**:
+- `content: [{ type: "text", text: ... }]`: Formatted Markdown for direct LLM and human reading.
+- `structuredContent: { ... }`: Strictly typed JSON payload containing parsed URLs, titles, payment fields (`paidAmount`, `currency`, `network`, `txHash`), latencies, balances, and operational metrics.
+
+For complete tool schemas, field definitions, and JSON payloads, see [mcp-server/README.md](./mcp-server/README.md).
+
+### MCP progress notifications (#327)
 
 Paid MCP tools (`web_search`, `image_search`, `news_search`) emit **bounded** `notifications/progress` events for actual payment/search phases **only when the client sends `_meta.progressToken`**:
 
