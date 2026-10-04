@@ -21,6 +21,9 @@ vi.mock('./logger', () => ({
   privacySafeIp: vi.fn((ip: string) => ip ? `ip:${ip}` : 'ip:unknown'),
   privacySafeQuery: vi.fn(() => undefined),
 }))
+vi.mock('./readiness.js', () => ({
+  getReadiness: vi.fn().mockResolvedValue({ status: 'ok', checks: [] })
+}))
 
 // Need to set env before import
 process.env.STELLAR_RECEIVING_ADDRESS = 'GAAZI4TCR3TY5OJHCTJC2A4AFL5MNSF3GAKGOWG5W2LBBGCS2TDPZOM3'

@@ -43,7 +43,7 @@ export function privacySafeIp(value: unknown): string {
   return raw ? `ip:${crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16)}` : 'ip:unknown'
 }
 
-const redactorFormat = winston.format((info) => {
+const redactorFormat = winston.format((info: any) => {
   return redact(info as Record<string, unknown>) as unknown as winston.Logform.TransformableInfo
 })
 
