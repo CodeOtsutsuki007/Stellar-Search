@@ -111,7 +111,11 @@ export function useSearch(
     }
   }, [walletNetwork, cancelActivePayment])
 
-  const search = useCallback(async (query: string, countOrFreshness: number | string = 5, includeDomains?: string[], excludeDomains?: string[]) => {
+  const cancel = useCallback(() => {
+    cancelActivePayment('Search request was cancelled.')
+  }, [cancelActivePayment])
+
+  const search = useCallback(async (query: string, count = 5, includeDomains?: string[], excludeDomains?: string[]) => {
     if (!query.trim()) return
 
     const activePayment: ActivePayment = {
@@ -254,10 +258,8 @@ export function useSearch(
       console.log('✅ Search complete!')
 
       const paymentResponseHeader = paidRes.headers.get('PAYMENT-RESPONSE') || paidRes.headers.get('x-payment-response')
-      const paymentResponse: any = paymentResponseHeader 
-        ? (typeof (httpClient as any).parsePaymentResponseHeader === 'function'
-            ? (httpClient as any).parsePaymentResponseHeader(paymentResponseHeader)
-            : paymentResponseHeader)
+      const paymentResponse = paymentResponseHeader
+        ? httpClient.parsePaymentResponseHeader(paymentResponseHeader)
         : null
       const txHash = data.txHash || paymentResponse?.transactionHash || null
       const paidAmount = data.paidAmount || paymentResponse?.amount || null
@@ -329,5 +331,5 @@ export function useSearch(
     setSession({ query: '', results: [], txHash: null, paidAmount: null, status: 'idle', suggestions: [] })
   }, [])
 
-  return { session, search, reset, cancelActivePayment }
+  return { session, search, reset, cancel } as const
 }
