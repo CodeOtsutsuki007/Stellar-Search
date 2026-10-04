@@ -1,12 +1,24 @@
 import { useRef, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Zap, AlertTriangle } from 'lucide-react'
+import { Search, Zap, AlertTriangle, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { IS_MAINNET, EXPECTED_WALLET_NETWORK } from '../../lib/stellar'
 import { calculateSearchPrice, type SearchMode } from '../../lib/constants'
 
+export interface FreshnessOption {
+  label: string
+  value: string
+}
+
+export const FRESHNESS_OPTIONS: FreshnessOption[] = [
+  { label: 'Any Time', value: '' },
+  { label: 'Past Day', value: 'pd' },
+  { label: 'Past Week', value: 'pw' },
+  { label: 'Past Month', value: 'pm' },
+]
+
 interface Props {
-  onSearch: (query: string, includeDomains?: string[], excludeDomains?: string[]) => void
+  onSearch: (query: string, includeDomains?: string[], excludeDomains?: string[], freshness?: string) => void
   isSearching: boolean
   walletConnected: boolean
   usdcBalance: string
@@ -27,6 +39,7 @@ export function SearchBar({
   resultCount = 5,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [freshness, setFreshness] = useState<string>(defaultFreshness)
   const [includeStr, setIncludeStr] = useState('')
   const [excludeStr, setExcludeStr] = useState('')
 
@@ -54,7 +67,13 @@ export function SearchBar({
     const includeDomains = includeStr.split(',').map(d => d.trim()).filter(Boolean)
     const excludeDomains = excludeStr.split(',').map(d => d.trim()).filter(Boolean)
 
-    if (q) onSearch(q, includeDomains, excludeDomains)
+    if (q) {
+      if (freshness) {
+        onSearch(q, includeDomains, excludeDomains, freshness)
+      } else {
+        onSearch(q, includeDomains, excludeDomains)
+      }
+    }
   }
 
   return (
@@ -75,9 +94,14 @@ export function SearchBar({
       <div className="relative group">
         {/* Glow ring on focus */}
         <div
-          className={`absolute -inset-px rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm ${isWrongNetwork ? 'bg-red-500/20' : ''
-            }`}
-          style={!isWrongNetwork ? { background: 'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))' } : {}}
+          className={`absolute -inset-px rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm ${
+            isWrongNetwork ? 'bg-red-500/20' : ''
+          }`}
+          style={
+            !isWrongNetwork
+              ? { background: 'linear-gradient(135deg, rgba(0,245,255,0.2), rgba(14,165,233,0.2), rgba(0,245,255,0.2))' }
+              : {}
+          }
         />
 
         <div
@@ -88,7 +112,10 @@ export function SearchBar({
             backdropFilter: 'blur(16px)',
           }}
         >
-          <Search className="w-5 h-5 flex-shrink-0" style={{ color: isWrongNetwork ? 'rgba(239,68,68,0.5)' : 'rgba(0,245,255,0.5)' }} />
+          <Search
+            className="w-5 h-5 flex-shrink-0"
+            style={{ color: isWrongNetwork ? 'rgba(239,68,68,0.5)' : 'rgba(0,245,255,0.5)' }}
+          />
 
           <input
             ref={inputRef}
@@ -125,6 +152,40 @@ export function SearchBar({
             )}
           </motion.button>
         </div>
+      </div>
+
+      {/* Date Range Freshness Filter Chips (#17) */}
+      <div
+        className="flex items-center gap-2 mt-3 px-1 flex-wrap"
+        role="group"
+        aria-label="Date range filters"
+      >
+        <span className="inline-flex items-center gap-1 font-display text-xs text-white/30 tracking-wider uppercase mr-1">
+          <Calendar className="w-3 h-3 text-neon-cyan/60" /> Freshness:
+        </span>
+        {FRESHNESS_OPTIONS.map((opt) => {
+          const isSelected = freshness === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setFreshness(opt.value)}
+              className="px-2.5 py-1 rounded-lg font-display text-xs transition-all border cursor-pointer"
+              style={{
+                background: isSelected
+                  ? 'rgba(0,245,255,0.15)'
+                  : 'rgba(255,255,255,0.03)',
+                borderColor: isSelected
+                  ? 'rgba(0,245,255,0.5)'
+                  : 'rgba(255,255,255,0.08)',
+                color: isSelected ? '#00f5ff' : 'rgba(255,255,255,0.4)',
+              }}
+              aria-pressed={isSelected}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex gap-3">
