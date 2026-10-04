@@ -25,6 +25,17 @@ import { ExactStellarScheme } from '@x402/stellar/exact/server'
 import { HTTPFacilitatorClient } from '@x402/core/server'
 import logger, { privacySafeIp, privacySafeQuery } from './logger'
 import crypto, { randomUUID } from 'crypto'
+
+function privacySafeIp(value: unknown): string {
+  const raw = typeof value === 'string' ? value : ''
+  return raw
+    ? `ip:${crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16)}`
+    : 'ip:unknown'
+}
+
+function privacySafeQuery(_value: unknown): undefined {
+  return undefined
+}
 import { USDC_CONTRACT } from '../src/lib/constants'
 import {
   type CountBounds,
