@@ -53,12 +53,16 @@ export type PaymentStep = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface SearchSession {
   query: string
+  originalQuery?: string
+  executedQuery?: string
+  suggestedQuery?: string
+  isCorrected?: boolean
   results: SearchResult[]
   txHash: string | null
   paidAmount: string | null
   status: 'idle' | 'searching' | 'complete' | 'error'
   step?: PaymentStep
-  error?: string
+  error?: string | null
   durationMs?: number
   suggestions: string[]
   filters?: {
@@ -107,6 +111,10 @@ export function useSearch(
     }
   }, [walletNetwork, cancelActivePayment])
 
+  const cancel = useCallback(() => {
+    cancelActivePayment('Search request was cancelled.')
+  }, [cancelActivePayment])
+
   const search = useCallback(async (query: string, count = 5, includeDomains?: string[], excludeDomains?: string[]) => {
     if (!query.trim()) return
 
@@ -124,7 +132,10 @@ export function useSearch(
     setSession({ query, results: [], txHash: null, paidAmount: null, status: 'searching', step: 1, suggestions: [] })
 
     const t0     = Date.now()
-    const params = new URLSearchParams({ q: query, count: String(count), suggestions: '1' })
+    const countVal = typeof countOrFreshness === 'number' ? String(countOrFreshness) : '5'
+    const freshnessVal = typeof countOrFreshness === 'string' && countOrFreshness ? countOrFreshness : undefined
+    const params = new URLSearchParams({ q: query, count: countVal, suggestions: '1' })
+    if (freshnessVal) params.append('freshness', freshnessVal)
     if (includeDomains && includeDomains.length > 0) params.append('includeDomains', includeDomains.join(','))
     if (excludeDomains && excludeDomains.length > 0) params.append('excludeDomains', excludeDomains.join(','))
 
@@ -247,8 +258,8 @@ export function useSearch(
       console.log('✅ Search complete!')
 
       const paymentResponseHeader = paidRes.headers.get('PAYMENT-RESPONSE') || paidRes.headers.get('x-payment-response')
-      const paymentResponse = paymentResponseHeader 
-        ? httpClient.parsePaymentResponseHeader(paymentResponseHeader) 
+      const paymentResponse = paymentResponseHeader
+        ? httpClient.parsePaymentResponseHeader(paymentResponseHeader)
         : null
       const txHash = data.txHash || paymentResponse?.transactionHash || null
       const paidAmount = data.paidAmount || paymentResponse?.amount || null
@@ -320,5 +331,5 @@ export function useSearch(
     setSession({ query: '', results: [], txHash: null, paidAmount: null, status: 'idle', suggestions: [] })
   }, [])
 
-  return { session, search, reset, cancelActivePayment }
+  return { session, search, reset, cancel } as const
 }
