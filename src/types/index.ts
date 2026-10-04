@@ -68,6 +68,10 @@ export interface SearchResponse {
   txHash?: string | null
   latencyMs: number
   suggestions?: string[]
+  filters?: {
+    includeDomains?: string[]
+    excludeDomains?: string[]
+  }
 }
 
 // Alias for compatibility
@@ -284,11 +288,17 @@ export interface SearchJob {
   statusUrl: string
   status: JobStatus
   createdAt: string
+  updatedAt?: string
   completedAt?: string
   paymentId?: string
   txHash?: string | null
   results?: SearchResult[]
+  result?: SearchResult[] // Alias for results
   error?: string
+  verified?: boolean
+  webhookUrl?: string
+  webhookSecret?: string
+  count?: number
 }
 
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
